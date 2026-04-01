@@ -1,0 +1,44 @@
+name: 🛠 代码质量检查
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  cpp-check:
+    name: 🛡 C/C++ 语法自检
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v3
+
+      - name: 🛠 遍历并检查 C/C++ 语法
+        run: |
+          # 寻找 leetcode, luogu 和 algorithms 目录下所有的 .cpp 和 .c 文件
+          # 使用 -fsyntax-only 仅进行语法检查，速度极快
+          find leetcode/problems luogu/problems algorithms -name "*.cpp" -o -name "*.c" | while read -r file; do
+            echo "正在检查: $file"
+            if [[ $file == *.cpp ]]; then
+              g++ -fsyntax-only -std=c++17 "$file" || exit 1
+            else
+              gcc -fsyntax-only -std=c11 "$file" || exit 1
+            fi
+          done
+
+  python-check:
+    name: 🐍 Python 静态扫描
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v3
+
+      - name: 🛠 安装 Ruff
+        run: pip install ruff
+
+      - name: 🔍 运行 Ruff 扫描
+        run: ruff check . --exclude test.py --exclude .github/scripts/update_stats.py

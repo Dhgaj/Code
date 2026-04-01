@@ -1,0 +1,34 @@
+name: 🏮 每日进度提醒
+
+on:
+  schedule:
+    # 每天北京时间 22:00 (UTC 14:00) 运行
+    - cron: '0 14 * * *'
+
+jobs:
+  check-progress:
+    name: 🏆 刷题进度自检
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # 获取完整历史以供检查
+
+      - name: 🔍 检查今日是否有提交
+        run: |
+          # 设定时区为北京时间（虽然 git log 默认用提交时间，但自检逻辑更严谨）
+          # 检查过去 24 小时内是否有非机器人的提交
+          # 我们重点检查 leetcode, luogu, algorithms 目录下的变动
+          
+          echo "正在检查过去 24 小时的代码变动..."
+          
+          # 获取非机器人的提交次数
+          CHANGES=$(git log --since="24 hours ago" --author=".*" --invert-grep --author="github-actions" --name-only -- leetcode/problems luogu/problems algorithms | grep -v '^$' | wc -l)
+          
+          if [ "$CHANGES" -eq 0 ]; then
+            echo "::error title=🚨 催更提醒::靓仔，你今天还没刷题呢！仓库里没有任何新题目的动静。快去卷一道代码吧！"
+            exit 1
+          else
+            echo "✅ 太棒了！今天检测到 $CHANGES 处代码更新，请继续保持你的节奏！"
+          fi
