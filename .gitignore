@@ -57,3 +57,7 @@ test_**
 # Other
 temp/
 input.txt
+problems.txt
+
+# Debug
+solution.dSYM/
