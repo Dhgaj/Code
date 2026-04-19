@@ -23,11 +23,12 @@ ALL_LANGS=("c" "cpp" "py")
 
 # 生成 solution.c 模板
 generate_c_template() {
-    local problem_name="$1"
-    cat << 'EOF'
-// PROBLEM_NAME
-// Author:
-// Date:
+    local problem_name="$1"     
+    local current_date="$2"
+    cat << EOF
+// $problem_name
+// Author: Dhgaj
+// Date: $current_date
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,18 +42,26 @@ EOF
 
 # 生成 solution.cpp 模板
 generate_cpp_template() {
-    local problem_name="$1"
-    cat << 'EOF'
-// PROBLEM_NAME
-// Author:
-// Date:
+    local problem_name="$1"     
+    local current_date="$2"
+    # 同样使用无引号的 EOF 来注入变量
+    cat << EOF
+// $problem_name
+// Author: Dhgaj
+// Date: $current_date
 
 #include <iostream>
 #include <vector>
 using namespace std;
 
+class Solution {
+public:
+    // TODO: 实现核心逻辑方法
+};
+
 int main() {
-    // TODO: 实现逻辑
+    Solution solution;
+    // TODO: 实例化并调用相关方法进行测试
     return 0;
 }
 EOF
@@ -61,10 +70,11 @@ EOF
 # 生成 solution.py 模板
 generate_py_template() {
     local problem_name="$1"
-    cat << 'EOF'
-# PROBLEM_NAME
-# Author:
-# Date:
+    local current_date="$2"
+    cat << EOF
+# $problem_name
+# Author: Dhgaj
+# Date: $current_date
 
 def main():
     # TODO: 实现逻辑
@@ -180,6 +190,8 @@ create_solution_files() {
 
     local created=0
     local skipped=0
+    local current_date
+    current_date=$(date "+%Y-%m-%d")
 
     for lang in "${langs[@]}"; do
         local filename="solution.$lang"
@@ -191,27 +203,31 @@ create_solution_files() {
             continue
         fi
 
-        # 根据语言生成对应模板，并替换题目名称
+        # 根据语言生成对应模板，直接传入题目名称和当前日期
         case "$lang" in
             c)
                 if [ "$platform" = "leetcode" ]; then
-                    echo "// $problem_name" > "$filepath"
+                    # 针对 leetcode 分区也输出 Date 字段注释
+                    printf "// %s\n// Date: %s\n" "$problem_name" "$current_date" > "$filepath"
                 else
-                    generate_c_template "$problem_name" | sed "s/PROBLEM_NAME/$problem_name/g" > "$filepath"
+                    # 传递当前日期到生成模板的函数中进行渲染（不再需要替换占位符）
+                    generate_c_template "$problem_name" "$current_date" > "$filepath"
                 fi
                 ;;
             cpp)
                 if [ "$platform" = "leetcode" ]; then
-                    echo "// $problem_name" > "$filepath"
+                    # 针对 leetcode 分区也输出 Date 字段注释
+                    printf "// %s\n// Date: %s\n" "$problem_name" "$current_date" > "$filepath"
                 else
-                    generate_cpp_template "$problem_name" | sed "s/PROBLEM_NAME/$problem_name/g" > "$filepath"
+                    generate_cpp_template "$problem_name" "$current_date" > "$filepath"
                 fi
                 ;;
             py)
                 if [ "$platform" = "leetcode" ]; then
-                    echo "# $problem_name" > "$filepath"
+                    # 使用 # 作为 Python 的注释输出
+                    printf "# %s\n# Date: %s\n" "$problem_name" "$current_date" > "$filepath"
                 else
-                    generate_py_template "$problem_name" | sed "s/PROBLEM_NAME/$problem_name/g" > "$filepath"
+                    generate_py_template "$problem_name" "$current_date" > "$filepath"
                 fi
                 ;;
         esac
