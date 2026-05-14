@@ -4,10 +4,10 @@
 
 def main():
     # 马路长度和区间数量
-    l, m = map(int, input().split())
+    L, m = map(int, input().split())
 
     # 差分数组
-    diff = [0] * (l + 2)
+    diff = [0] * (L + 2)
 
     # 处理每个区间
     for _ in range(m):
@@ -25,7 +25,7 @@ def main():
     sum = 0
 
     # 前缀和恢复
-    for i in range(l + 1):
+    for i in range(L + 1):
         cur += diff[i]
 
         # 没被覆盖
