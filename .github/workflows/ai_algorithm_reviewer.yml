@@ -1,0 +1,60 @@
+name: AI 算法代码审查
+
+on:
+  push:
+    paths:
+      - 'leetcode/**'
+      - 'luogu/**'
+  workflow_dispatch:
+    inputs:
+      file_path:
+        description: '手动指定审查文件(例: luogu/P1047/solution.py)。留空则默认查最后一次提交。'
+        required: false
+        type: string
+
+jobs:
+  review:
+    # 避免自动提交触发无限循环，排除 github-actions[bot] 的提交
+    if: github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip ci]')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # 获取完整提交历史，以便支持跨多个 commit 的对比
+
+      - name: 🐍 设置 Python 环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: 📦 安装依赖
+        run: pip install requests
+
+      - name: 🔍 获取变更文件
+        id: changed-files
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.file_path }}" ]; then
+            # 1. 手动触发并指定了具体文件
+            FILES="${{ github.event.inputs.file_path }}"
+          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            # 2. 普通推送：比较本次推送包含的所有历史 Commit 的总和变化！
+            FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E "^(leetcode|luogu)/.*\.(py|cpp|java|c|go)$" | tr '\n' ' ' || true)
+          else
+            # 3. 兜底方案：仅对比最后一次提交（处理新建分支或未指定文件的情况）
+            FILES=$(git diff --name-only HEAD^ HEAD | grep -E "^(leetcode|luogu)/.*\.(py|cpp|java|c|go)$" | tr '\n' ' ' || true)
+          fi
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+
+      - name: 🤖 运行 AI 审查脚本
+        if: steps.changed-files.outputs.files != ''
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          CHANGED_FILES: ${{ steps.changed-files.outputs.files }}
+        run: python .github/scripts/ai_reviewer.py
