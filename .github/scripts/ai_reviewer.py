@@ -1,6 +1,5 @@
 import os
 import requests
-import sys
 
 def get_cloudflare_ai_response(code, filename):
     account_id = os.environ.get("CLOUDFLARE_ACCOUNT_ID")
