@@ -4,7 +4,6 @@
 
 #include <iostream>
 #include <vector>
-#include <string>
 using namespace std;
 
 class Solution
@@ -23,25 +22,13 @@ public:
         // 遍历10000到30000
         for (int num = minNum; num <= maxNum; num++)
         {
-            // 转化为字符串
-            string s = to_string(num);
-
-            // 存储连续三个数字
-            vector<int> result;
-
-            // 取123、234、345
-            for (int i = 0; i < s.size() - 2; i++)
-            {
-                // 截取长度为3的子串并转成整数
-                int value = stoi(s.substr(i, 3));
-
-                result.push_back(value);
-            }
+            // 使用数学方法提取三个子数（极大降低字符串创建和截取的开销）
+            int sub1 = num / 100;
+            int sub2 = (num / 10) % 1000;
+            int sub3 = num % 1000;
 
             // 判断是否符合条件
-            if (result[0] % k == 0 &&
-                result[1] % k == 0 &&
-                result[2] % k == 0)
+            if (sub1 % k == 0 && sub2 % k == 0 && sub3 % k == 0)
             {
                 ans.push_back(num);
             }

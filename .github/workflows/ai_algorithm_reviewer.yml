@@ -19,7 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
-      contents: read
+      contents: write
+      pull-requests: write
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v3
@@ -58,3 +59,13 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           CHANGED_FILES: ${{ steps.changed-files.outputs.files }}
         run: python .github/scripts/ai_reviewer.py
+
+      - name: 🚀 生成 AI 优化代码的 Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "🤖 AI 自动代码优化"
+          title: "🤖 AI 算法代码优化方案"
+          body: "AI 导师发现了可优化的算法代码，并生成了改进方案。详情请查看最新生成的 Issue 报告。\n\n请审查此 Pull Request 中的代码改动，如果认可，请点击 `Merge pull request` 合并到主分支。"
+          branch: "ai-optimization-patch"
+          delete-branch: true
+          labels: "AI-Optimization"

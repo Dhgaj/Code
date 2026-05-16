@@ -19,14 +19,20 @@ def get_cloudflare_ai_response(code, problem_name):
     prompt = f"""你是一个顶级的算法竞赛(ACM/LeetCode/Luogu)教练。请对以下属于【{problem_name}】的算法代码进行深度审查。
 
 ⚠️ **严格准则**（必须遵守）：
-1. **忽略工程规范**：不要指出缺少异常捕获(try-except)、scanf返回值检查、变量命名(如sum等保留字)等工程级规范问题。算法题只关注逻辑正确性、边界条件、时间/空间效率！
-2. **拒绝废话**：如果代码逻辑已经是最优且正确的，直接指出其优点即可，绝对不要强行找茬。
-3. **必须提供代码**：无论你是修复了 Bug 还是提出了更优的算法（如把 O(N^2) 优化为 O(N)），你**都必须提供完整的优化后代码**，并加上中文注释。
+1. **忽略工程规范**：不要指出缺少异常捕获(try-except)、scanf返回值检查、变量命名等工程规范问题。算法题只关注逻辑、边界、时空效率！
+2. **完美代码免输出**：如果代码逻辑已经是非常完美的顶级解法，直接给予夸奖即可，**绝对不需要强行输出代码**。
+3. **按需提供多语言优化**：如果代码**存在优化空间**，且用户同时提交了多种语言的代码（如 .c, .cpp, .py），你必须为**有改进空间的每一种语言**都分别提供独立的完整优化代码。
+4. **代码块路径绑定（极其重要）**：为了能够实现自动化 Pull Request 提取，在你输出每一份优化代码块之前，**必须严格紧贴代码块上方写一行标识**，格式为：`### 优化代码：<原始文件绝对路径>`。
+例如：
+### 优化代码：luogu/problems/P1151-Subnumber-Integer/solution.cpp
+```cpp
+// 你的优化代码
+```
 
 请按以下结构输出报告：
-1. 🐛 **Bug 与逻辑陷阱**：只指出会导致 Wrong Answer (WA) 或 Time Limit Exceeded (TLE) 的致命逻辑错误及边界条件。
-2. ⏱️ **复杂度评估**：准确评估当前核心算法的时间复杂度和空间复杂度。
-3. 💡 **更优解法与代码**：详细说明更优的解法思路，并**直接给出完整的优化代码**（使用 markdown 代码块）。
+1. 🐛 **Bug 与逻辑陷阱**：指出会导致 WA 或 TLE 的错误。如果没有，写“无”。
+2. ⏱️ **复杂度评估**：评估时间和空间复杂度。
+3. 💡 **优化建议与代码**：说明更优思路。若代码已是最优，直接表扬；若有优化空间，务必按上述“代码块路径绑定”格式输出代码。
 
 被审查的代码如下：
 {code}
@@ -147,6 +153,28 @@ def main():
             
             # 调用 GitHub API 创建合并后的 Issue
             create_github_issue(title, body)
+            
+            # --- 新增：解析 AI 输出的代码并覆盖本地文件，以便后续 GitHub Action 发起 PR ---
+            import re
+            # 正则表达式匹配：### 优化代码：<路径> 换行之后跟着的 markdown 代码块
+            pattern = r"###\s*优化代码：([^\n]+)\n+```[a-zA-Z]*\n(.*?)```"
+            matches = re.findall(pattern, ai_report, re.DOTALL)
+            
+            if matches:
+                print(f"📦 发现了 {len(matches)} 份优化代码，准备覆盖本地文件并触发 PR...")
+                for path, new_code in matches:
+                    path = path.strip()
+                    new_code = new_code.strip() + "\n"
+                    # 安全校验：确保 AI 输出的路径确实是本次被修改的文件之一，防止被覆盖无关文件
+                    if path in files:
+                        try:
+                            with open(path, "w", encoding="utf-8") as f:
+                                f.write(new_code)
+                            print(f"✅ 已成功将优化代码覆盖写入本地准备提 PR：{path}")
+                        except Exception as e:
+                            print(f"❌ 覆盖写入本地文件 {path} 失败: {e}")
+                    else:
+                        print(f"⚠️ 忽略非法路径或不在本次审查范围内的文件：{path}")
 
 if __name__ == "__main__":
     main()

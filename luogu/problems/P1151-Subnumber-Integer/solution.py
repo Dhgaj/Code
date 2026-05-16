@@ -15,15 +15,16 @@ def main():
 
     # 历遍10000到30000
     for num in range(minNum, maxNum+1):
-        # 转化为字符
-        s = str(num)
-        # 取123、234、345并存储为元素为整数类型的列表
-        result = [int(s[i:i+3]) for i in range(len(s) - 2)]
+        # 使用数学运算替代字符串切片，大幅提升效率
+        sub1 = num // 100
+        sub2 = (num // 10) % 1000
+        sub3 = num % 1000
+
         # 判断是否符合判定条件
-        if result[0] % k == 0 and result[1] % k == 0 and result[2] % k == 0:
+        if sub1 % k == 0 and sub2 % k == 0 and sub3 % k == 0:
             print(num)
             flag = True
-    if flag == False:
+    if not flag:
         print("No")
 
 
