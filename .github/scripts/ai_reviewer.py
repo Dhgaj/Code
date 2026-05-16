@@ -22,17 +22,21 @@ def get_cloudflare_ai_response(code, problem_name):
 1. **忽略工程规范**：不要指出缺少异常捕获(try-except)、scanf返回值检查、变量命名等工程规范问题。算法题只关注逻辑、边界、时空效率！
 2. **完美代码免输出**：如果代码逻辑已经是非常完美的顶级解法，直接给予夸奖即可，**绝对不需要强行输出代码**。
 3. **按需提供多语言优化**：如果代码**存在优化空间**，且用户同时提交了多种语言的代码（如 .c, .cpp, .py），你必须为**有改进空间的每一种语言**都分别提供独立的完整优化代码。
-4. **代码块路径绑定（极其重要）**：为了能够实现自动化 Pull Request 提取，在你输出每一份优化代码块之前，**必须严格紧贴代码块上方写一行标识**，格式为：`### 优化代码：<原始文件绝对路径>`。
+4. **代码输出格式（极其重要）**：为了能够实现自动化提取，如果你需要输出优化后的代码，**必须严格使用 XML 标签将其包裹，并标明原始文件的路径**。绝对不要使用普通的 markdown 代码块。格式必须严格如下：
+<file path="原始文件的绝对路径">
+这里写优化后的完整代码...
+</file>
 例如：
-### 优化代码：luogu/problems/P1151-Subnumber-Integer/solution.cpp
-```cpp
-// 你的优化代码
-```
+<file path="luogu/problems/P1151-Subnumber-Integer/solution.cpp">
+#include <iostream>
+using namespace std;
+// ...
+</file>
 
 请按以下结构输出报告：
 1. 🐛 **Bug 与逻辑陷阱**：指出会导致 WA 或 TLE 的错误。如果没有，写“无”。
 2. ⏱️ **复杂度评估**：评估时间和空间复杂度。
-3. 💡 **优化建议与代码**：说明更优思路。若代码已是最优，直接表扬；若有优化空间，务必按上述“代码块路径绑定”格式输出代码。
+3. 💡 **优化建议与代码**：说明更优思路。若代码已是最优，直接表扬；若有优化空间，务必按上述 XML `<file>` 标签格式输出所有语言的代码。
 
 被审查的代码如下：
 {code}
@@ -46,7 +50,7 @@ def get_cloudflare_ai_response(code, problem_name):
     data = {
         "max_tokens": 2048, # 增加最大 Token 数，防止 AI 的长篇分析和代码生成被半路截断
         "messages": [
-            {"role": "system", "content": "你是一位专业的算法竞赛教练。你的职责是专注算法逻辑优化，无视工程规范，并且总是用 Markdown 代码块提供优化后的完整代码。"},
+            {"role": "system", "content": "你是一位专业的算法竞赛教练。专注算法逻辑优化，无视工程规范。如果有代码输出，必须严格使用用户要求的 XML <file> 标签包裹，绝对不要使用普通的 Markdown 代码块。"},
             {"role": "user", "content": prompt}
         ]
     }
@@ -156,14 +160,22 @@ def main():
             
             # --- 新增：解析 AI 输出的代码并覆盖本地文件，以便后续 GitHub Action 发起 PR ---
             import re
-            # 正则表达式匹配：### 优化代码：<路径> 换行之后跟着的 markdown 代码块
-            pattern = r"###\s*优化代码：([^\n]+)\n+```[a-zA-Z]*\n(.*?)```"
+            # 正则表达式匹配：<file path="路径">代码</file>
+            pattern = r'<file\s+path="([^"]+)">\s*(.*?)\s*</file>'
             matches = re.findall(pattern, ai_report, re.DOTALL)
             
             if matches:
                 print(f"📦 发现了 {len(matches)} 份优化代码，准备覆盖本地文件并触发 PR...")
                 for path, new_code in matches:
                     path = path.strip()
+                    new_code = new_code.strip()
+                    
+                    # 防御性编程：防止 AI 在 XML 内部依旧手痒加了 ```python 等 Markdown 框
+                    if new_code.startswith("```"):
+                        new_code = new_code.split("\n", 1)[-1]
+                    if new_code.endswith("```"):
+                        new_code = new_code.rsplit("```", 1)[0]
+                        
                     new_code = new_code.strip() + "\n"
                     # 安全校验：确保 AI 输出的路径确实是本次被修改的文件之一，防止被覆盖无关文件
                     if path in files:
