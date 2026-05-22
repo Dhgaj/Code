@@ -65,6 +65,102 @@ using namespace std;
             print(f"返回内容: {response.text}")
         return None
 
+def format_xml_to_markdown(text):
+    # 局部导入 re 模块，确保正则可用
+    import re
+    # 正则匹配 AI 输出的自定义 XML 文件标签，并进行引号及尾部空格的高鲁棒性容错
+    pattern = r'<file\s+path=["\']([^"\']+)["\']\s*>\s*(.*?)\s*</file>'
+    
+    def replace_match(match):
+        # 获取匹配出的文件路径和优化代码内容
+        file_path = match.group(1)
+        code_content = match.group(2)
+        
+        # 提取文件后缀并将其映射为 Markdown 代码块的语言标识
+        ext = os.path.splitext(file_path)[1].lower()
+        lang_map = {
+            ".py": "python",
+            ".cpp": "cpp",
+            ".java": "java",
+            ".go": "go",
+            ".c": "c",
+            ".js": "javascript",
+            ".ts": "typescript"
+        }
+        lang = lang_map.get(ext, "")
+        
+        # 清除代码内容首尾的多余空白字符
+        code_content = code_content.strip()
+        
+        # 防御性逻辑：防止 AI 在 XML 内部依旧使用 Markdown 代码块进行包裹
+        if code_content.startswith("```"):
+            code_content = code_content.split("\n", 1)[-1]
+        if code_content.endswith("```"):
+            code_content = code_content.rsplit("```", 1)[0]
+        code_content = code_content.strip()
+            
+        # 返回格式化后的 Markdown 代码块
+        return f"\n\n**📁 优化后的代码 ({file_path})：**\n```{lang}\n{code_content}\n```\n"
+
+    # 执行正则替换，并使用 DOTALL 标记支持匹配换行符
+    return re.sub(pattern, replace_match, text, flags=re.DOTALL)
+
+def extract_header_comments(original_code, file_path):
+    # 根据文件类型确定单行注释的标记
+    ext = os.path.splitext(file_path)[1].lower()
+    
+    # 获取原始代码的所有行
+    lines = original_code.splitlines(keepends=True)
+    header_lines = []
+    
+    in_block_comment = False
+    block_comment_end_char = ""
+    
+    for line in lines:
+        stripped = line.strip()
+        
+        # 如果当前在块注释内部
+        if in_block_comment:
+            header_lines.append(line)
+            if block_comment_end_char in stripped:
+                in_block_comment = False
+            continue
+            
+        # 允许空白行作为头部的一部分
+        if not stripped:
+            header_lines.append(line)
+            continue
+            
+        # 检查是否是单行注释
+        if ext in [".cpp", ".c", ".java", ".go"]:
+            if stripped.startswith("//"):
+                header_lines.append(line)
+                continue
+            elif stripped.startswith("/*"):
+                header_lines.append(line)
+                if "*/" not in stripped:
+                    in_block_comment = True
+                    block_comment_end_char = "*/"
+                continue
+        elif ext == ".py":
+            if stripped.startswith("#"):
+                header_lines.append(line)
+                continue
+            elif stripped.startswith('"""') or stripped.startswith("'''"):
+                header_lines.append(line)
+                # 检查是否在同一行结束了三引号注释
+                quote_char = '"""' if stripped.startswith('"""') else "'''"
+                # 排除只有这三个引号本身的情况，或者首尾都有的情况
+                if stripped.count(quote_char) < 2:
+                    in_block_comment = True
+                    block_comment_end_char = quote_char
+                continue
+                
+        # 一旦遇到既不是注释也不是空白的行，立即终止提取
+        break
+        
+    return "".join(header_lines)
+
 def create_github_issue(title, body):
     repo = os.environ.get("GITHUB_REPOSITORY")
     token = os.environ.get("GITHUB_TOKEN")
@@ -153,15 +249,17 @@ def main():
             
             # 在 Issue 内容中列出所有的被审查的文件
             files_list = "\n".join([f"- `{f}`" for f in files])
-            body = f"### 📄 题目涉及文件：\n{files_list}\n\n{ai_report}\n\n---\n*由 Cloudflare Workers AI 自动生成的算法审查报告。*"
+            # 将 AI 报告中的自定义 XML 代码标签格式化为漂亮的 Markdown 代码块
+            formatted_report = format_xml_to_markdown(ai_report)
+            body = f"### 📄 题目涉及文件：\n{files_list}\n\n{formatted_report}\n\n---\n*由 Cloudflare Workers AI 自动生成的算法审查报告。*"
             
             # 调用 GitHub API 创建合并后的 Issue
             create_github_issue(title, body)
             
             # --- 新增：解析 AI 输出的代码并覆盖本地文件，以便后续 GitHub Action 发起 PR ---
             import re
-            # 正则表达式匹配：<file path="路径">代码</file>
-            pattern = r'<file\s+path="([^"]+)">\s*(.*?)\s*</file>'
+            # 正则表达式匹配：<file path="路径">代码</file>，并进行引号与空格的容错
+            pattern = r'<file\s+path=["\']([^"\']+)["\']\s*>\s*(.*?)\s*</file>'
             matches = re.findall(pattern, ai_report, re.DOTALL)
             
             if matches:
@@ -180,8 +278,27 @@ def main():
                     # 安全校验：确保 AI 输出的路径确实是本次被修改的文件之一，防止被覆盖无关文件
                     if path in files:
                         try:
+                            # 1. 尝试读取原文件的原始代码，以提取并保留原本的头部注释（如作者、题目、日期等元信息）
+                            original_code = ""
+                            if os.path.exists(path):
+                                with open(path, "r", encoding="utf-8") as f:
+                                    original_code = f.read()
+                            
+                            # 2. 提取头部注释
+                            header_comments = extract_header_comments(original_code, path)
+                            
+                            # 3. 如果提取到了头部注释，将其格式化拼接在优化后代码的头部
+                            if header_comments:
+                                if not header_comments.endswith("\n\n"):
+                                    header_comments = header_comments.rstrip() + "\n\n"
+                                # 将头部注释与新代码合并，并去除新代码可能有的多余前导空格/换行
+                                write_code = header_comments + new_code.lstrip()
+                            else:
+                                write_code = new_code
+                                
+                            # 4. 写入合并后的代码，覆盖本地文件
                             with open(path, "w", encoding="utf-8") as f:
-                                f.write(new_code)
+                                f.write(write_code)
                             print(f"✅ 已成功将优化代码覆盖写入本地准备提 PR：{path}")
                         except Exception as e:
                             print(f"❌ 覆盖写入本地文件 {path} 失败: {e}")

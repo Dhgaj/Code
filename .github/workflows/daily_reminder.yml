@@ -19,12 +19,25 @@ jobs:
         run: |
           # 设定时区为北京时间（虽然 git log 默认用提交时间，但自检逻辑更严谨）
           # 检查过去 24 小时内是否有非机器人的提交
-          # 我们重点检查 leetcode, luogu, algorithms 目录下的变动
+          # 我们重点检查 leetcode/problems, luogu/problems, algorithms 目录下的变动
           
           echo "正在检查过去 24 小时的代码变动..."
           
+          # 动态获取当前仓库中真实存在且在 Git 跟踪树下的刷题目录，防止直接传不存在的路径触发 Git 报错终止
+          VALID_TRACKED_PATHS=""
+          for d in leetcode/problems luogu/problems algorithms; do
+            if [ -d "$d" ]; then
+              VALID_TRACKED_PATHS="$VALID_TRACKED_PATHS $d"
+            fi
+          done
+          
           # 获取非机器人的提交次数
-          CHANGES=$(git log --since="24 hours ago" --author=".*" --invert-grep --author="github-actions" --name-only -- leetcode/problems luogu/problems algorithms | grep -v '^$' | wc -l)
+          if [ -n "$VALID_TRACKED_PATHS" ]; then
+            CHANGES=$(git log --since="24 hours ago" --author=".*" --invert-grep --author="github-actions" --name-only -- $VALID_TRACKED_PATHS | grep -v '^$' | wc -l)
+          else
+            # 兜底机制：若没有任何目录存在，直接统计整个仓库
+            CHANGES=$(git log --since="24 hours ago" --author=".*" --invert-grep --author="github-actions" --name-only | grep -v '^$' | wc -l)
+          fi
           
           if [ "$CHANGES" -eq 0 ]; then
             echo "::error title=🚨 催更提醒::靓仔，你今天还没刷题呢！仓库里没有任何新题目的动静。快去卷一道代码吧！"

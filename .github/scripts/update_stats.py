@@ -11,8 +11,8 @@ def count_problems(path):
         d_path = os.path.join(path, d)
         # 排除隐藏文件、非文件夹以及以 test（不区分大小写）开头的文件夹
         if os.path.isdir(d_path) and not d.startswith('.') and not d.lower().startswith('test'):
-            # 检查目录下是否包含 .cpp, .c, .py 或 .md 文件
-            files = [f for f in os.listdir(d_path) if f.endswith(('.cpp', '.c', '.py', '.md'))]
+            # 检查目录下是否包含 .cpp, .c, .py, .md, .java 或 .go 文件
+            files = [f for f in os.listdir(d_path) if f.endswith(('.cpp', '.c', '.py', '.md', '.java', '.go'))]
             if files:
                 count += 1
     return count
@@ -41,6 +41,11 @@ def update_readme():
     pattern = r'<!-- STATS_START -->.*?<!-- STATS_END -->'
     replacement = f'<!-- STATS_START -->\n{stats_table}\n<!-- STATS_END -->'
     
+    # 检查 README 中是否包含所需的统计信息块锚点注释，如果没有则优雅跳过
+    if '<!-- STATS_START -->' not in content or '<!-- STATS_END -->' not in content:
+        print("⚠️ 未在 README.md 中找到 <!-- STATS_START --> 或 <!-- STATS_END --> 锚点注释，跳过更新。")
+        return
+
     new_content = re.sub(pattern, replacement, content, flags=re.DOTALL)
 
     with open(readme_path, 'w', encoding='utf-8') as f:

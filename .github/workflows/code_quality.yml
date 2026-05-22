@@ -19,16 +19,28 @@ jobs:
 
       - name: 🛠 遍历并检查 C/C++ 语法
         run: |
-          # 寻找 leetcode, luogu 和 algorithms 目录下所有的 .cpp 和 .c 文件
-          # 使用 -fsyntax-only 仅进行语法检查，速度极快
-          find leetcode/problems luogu/problems algorithms -name "*.cpp" -o -name "*.c" | while read -r file; do
-            echo "正在检查: $file"
-            if [[ $file == *.cpp ]]; then
-              g++ -fsyntax-only -std=c++17 "$file" || exit 1
-            else
-              gcc -fsyntax-only -std=c11 "$file" || exit 1
+          # 寻找 leetcode/problems, luogu/problems 和 algorithms 目录下所有的 .cpp 和 .c 文件
+          # 在执行 find 之前，先安全检查哪些目录确实存在，防止 find 报错退出导致工作流崩溃
+          VALID_DIRS=""
+          for d in leetcode/problems luogu/problems algorithms; do
+            if [ -d "$d" ]; then
+              VALID_DIRS="$VALID_DIRS $d"
             fi
           done
+          
+          if [ -n "$VALID_DIRS" ]; then
+            # 使用 -fsyntax-only 仅进行语法检查，速度极快
+            find $VALID_DIRS -name "*.cpp" -o -name "*.c" | while read -r file; do
+              echo "正在检查: $file"
+              if [[ $file == *.cpp ]]; then
+                g++ -fsyntax-only -std=c++17 "$file" || exit 1
+              else
+                gcc -fsyntax-only -std=c11 "$file" || exit 1
+              fi
+            done
+          else
+            echo "ℹ️ 未检测到任何待检查的 C/C++ 代码目录，跳过语法自检。"
+          fi
 
   python-check:
     name: 🐍 Python 静态扫描
