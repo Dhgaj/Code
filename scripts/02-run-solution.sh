@@ -81,8 +81,79 @@ DIR_NAME=$(dirname "$FILE_PATH")
 FILE_NAME=$(basename "$FILE_PATH")
 BASE_NAME="${FILE_NAME%.*}"
 
-# 进入文件所在目录执行，这样生成的可执行文件也在同目录，且运行时的当前路径是对的
+# 进入文件所在目录执行
 cd "$DIR_NAME" || exit 1
+
+run_with_inputs() {
+    local exec_cmd="$1"
+
+    if [ ! -f "input.txt" ]; then
+        echo "----------------------------------------"
+        eval "$exec_cmd"
+        echo -e "\n----------------------------------------"
+        return
+    fi
+    
+    # 检查是否有 === 分隔符
+    if ! grep -qE '^===\s*.*\s*===\s*$' "input.txt"; then
+        echo -e "${CYAN}[自动读取 input.txt 作为整体输入]${NC}"
+        echo "----------------------------------------"
+        eval "$exec_cmd" < "input.txt"
+        echo -e "\n----------------------------------------"
+        return
+    fi
+    
+    local tmp_dir=$(mktemp -d)
+    
+    # 使用 awk 根据 === xxx === 分割输入
+    awk -v out_dir="$tmp_dir" '
+        /^===\s*.*\s*===\s*$/ {
+            if (out) { close(out) }
+            idx++
+            case_name = $0
+            gsub(/^===\s*|\s*===$/, "", case_name)
+            name_file = out_dir "/" idx ".name"
+            print case_name > name_file
+            close(name_file)
+            
+            out = out_dir "/" idx ".txt"
+            next
+        }
+        {
+            if (out) {
+                print > out
+            }
+        }
+    ' "input.txt"
+    
+    local count=0
+    # 按照切分的序号顺序执行
+    for name_file in $(ls -1 "$tmp_dir"/*.name 2>/dev/null | sort -V); do
+        count=$((count+1))
+        local base_idx=$(basename "$name_file" .name)
+        local test_file="$tmp_dir/$base_idx.txt"
+        local case_name=$(cat "$name_file")
+        
+        echo -e "${CYAN}[运行测试用例: ${case_name}]${NC}"
+        echo "----------------------------------------"
+        if [ -f "$test_file" ]; then
+            eval "$exec_cmd" < "$test_file"
+        else
+            eval "$exec_cmd" < /dev/null
+        fi
+        echo -e "\n----------------------------------------"
+    done
+    
+    if [ "$count" -eq 0 ]; then
+        # 兜底：如果 awk 没切分出任何用例
+        echo -e "${CYAN}[自动读取 input.txt 作为整体输入]${NC}"
+        echo "----------------------------------------"
+        eval "$exec_cmd" < "input.txt"
+        echo -e "\n----------------------------------------"
+    fi
+
+    rm -rf "$tmp_dir"
+}
 
 case "$EXT" in
     c)
@@ -91,9 +162,7 @@ case "$EXT" in
         gcc "$FILE_NAME" -o "$BASE_NAME"
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}编译成功！开始运行：${NC}"
-            echo "----------------------------------------"
-            "./$BASE_NAME"
-            echo -e "\n----------------------------------------"
+            run_with_inputs "\"./$BASE_NAME\""
             echo -e "${GREEN}运行结束。${NC}"
         else
             echo -e "${RED}编译失败，取消运行。${NC}"
@@ -105,9 +174,7 @@ case "$EXT" in
         g++ "$FILE_NAME" -o "$BASE_NAME"
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}编译成功！开始运行：${NC}"
-            echo "----------------------------------------"
-            "./$BASE_NAME"
-            echo -e "\n----------------------------------------"
+            run_with_inputs "\"./$BASE_NAME\""
             echo -e "${GREEN}运行结束。${NC}"
         else
             echo -e "${RED}编译失败，取消运行。${NC}"
@@ -115,9 +182,7 @@ case "$EXT" in
         ;;
     py)
         echo -e "${GREEN}开始运行 Python 脚本 ${FILE_NAME}：${NC}"
-        echo "----------------------------------------"
-        python3 "$FILE_NAME"
-        echo -e "\n----------------------------------------"
+        run_with_inputs "python3 \"$FILE_NAME\""
         echo -e "${GREEN}运行结束。${NC}"
         ;;
     *)

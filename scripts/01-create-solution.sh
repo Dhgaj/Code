@@ -220,6 +220,12 @@ create_solution_files() {
         created=$((created + 1))
     done
 
+    if [ ! -f "$target_dir/input.txt" ]; then
+        echo "=== 1 ===" > "$target_dir/input.txt"
+        echo -e "  ${GREEN}✓ 创建: input.txt${NC} -> $target_dir"
+        created=$((created + 1))
+    fi
+
     echo ""
     echo -e "${BLUE}完成: 新建 ${created} 个文件, 跳过 ${skipped} 个已存在文件${NC}"
 }
