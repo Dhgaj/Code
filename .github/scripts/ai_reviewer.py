@@ -1,4 +1,5 @@
 import os
+
 import requests
 
 def get_cloudflare_ai_response(code, problem_name):
@@ -59,7 +60,7 @@ using namespace std;
         response = requests.post(url, headers=headers, json=data)
         response.raise_for_status()
         return response.json().get('result', {}).get('response')
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         print(f"❌ API 请求失败: {e}")
         if 'response' in locals() and hasattr(response, 'text'):
             print(f"返回内容: {response.text}")
@@ -146,7 +147,7 @@ def extract_header_comments(original_code, file_path):
             if stripped.startswith("#"):
                 header_lines.append(line)
                 continue
-            elif stripped.startswith('"""') or stripped.startswith("'''"):
+            elif stripped.startswith(('"""', "'''")):
                 header_lines.append(line)
                 # 检查是否在同一行结束了三引号注释
                 quote_char = '"""' if stripped.startswith('"""') else "'''"
@@ -300,7 +301,7 @@ def main():
                             with open(path, "w", encoding="utf-8") as f:
                                 f.write(write_code)
                             print(f"✅ 已成功将优化代码覆盖写入本地准备提 PR：{path}")
-                        except Exception as e:
+                        except OSError as e:
                             print(f"❌ 覆盖写入本地文件 {path} 失败: {e}")
                     else:
                         print(f"⚠️ 忽略非法路径或不在本次审查范围内的文件：{path}")

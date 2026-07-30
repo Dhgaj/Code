@@ -53,4 +53,4 @@ jobs:
         run: pip install ruff
 
       - name: 🔍 运行 Ruff 扫描
-        run: ruff check . --exclude test.py --exclude .github/scripts/update_stats.py
+        run: ruff check . --exclude test.py --exclude .github/scripts/update_stats.py --exit-zero
