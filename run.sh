@@ -31,6 +31,7 @@ show_menu() {
     echo -e "${CYAN_BOLD}│${NC}"
     echo -e "${CYAN_BOLD}│${NC}  ${GREEN}1.${NC} 创建题解文件 (solution.c / .cpp / .py)"
     echo -e "${CYAN_BOLD}│${NC}  ${GREEN}2.${NC} 创建题目文件夹 (根据 problems.txt)"
+    echo -e "${CYAN_BOLD}│${NC}  ${GREEN}3.${NC} 编译并运行题解"
     echo -e "${CYAN_BOLD}│${NC}  ${RED}0.${NC} 退出"
     echo -e "${CYAN_BOLD}│${NC}"
     # 底边框和上边框复用同一长度，保证菜单盒子的上下边严格对齐。
@@ -63,7 +64,7 @@ main() {
         fi
 
         # 在底层原生调用输入
-        read -rp "❯ 请输入操作指令 (0/1/2): " choice
+        read -rp "❯ 请输入操作指令 (0/1/2/3): " choice
 
 
         # 重置提示信息
@@ -82,6 +83,15 @@ main() {
             2)
                 clear
                 bash "$SCRIPTS_DIR/00-mkdir-dictionary.sh"
+                ret=$?
+                if [ "$ret" -eq 0 ]; then
+                    echo -e "\n${YELLOW}任务执行完毕，按回车键返回...${NC}"
+                    read -r
+                fi
+                ;;
+            3)
+                clear
+                bash "$SCRIPTS_DIR/02-run-solution.sh"
                 ret=$?
                 if [ "$ret" -eq 0 ]; then
                     echo -e "\n${YELLOW}任务执行完毕，按回车键返回...${NC}"

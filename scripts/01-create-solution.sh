@@ -206,29 +206,13 @@ create_solution_files() {
         # 根据语言生成对应模板，直接传入题目名称和当前日期
         case "$lang" in
             c)
-                if [ "$platform" = "leetcode" ]; then
-                    # 针对 leetcode 分区也输出 Date 字段注释
-                    printf "// %s\n// Date: %s\n" "$problem_name" "$current_date" > "$filepath"
-                else
-                    # 传递当前日期到生成模板的函数中进行渲染（不再需要替换占位符）
-                    generate_c_template "$problem_name" "$current_date" > "$filepath"
-                fi
+                generate_c_template "$problem_name" "$current_date" > "$filepath"
                 ;;
             cpp)
-                if [ "$platform" = "leetcode" ]; then
-                    # 针对 leetcode 分区也输出 Date 字段注释
-                    printf "// %s\n// Date: %s\n" "$problem_name" "$current_date" > "$filepath"
-                else
-                    generate_cpp_template "$problem_name" "$current_date" > "$filepath"
-                fi
+                generate_cpp_template "$problem_name" "$current_date" > "$filepath"
                 ;;
             py)
-                if [ "$platform" = "leetcode" ]; then
-                    # 使用 # 作为 Python 的注释输出
-                    printf "# %s\n# Date: %s\n" "$problem_name" "$current_date" > "$filepath"
-                else
-                    generate_py_template "$problem_name" "$current_date" > "$filepath"
-                fi
+                generate_py_template "$problem_name" "$current_date" > "$filepath"
                 ;;
         esac
 
